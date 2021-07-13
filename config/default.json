@@ -1,3 +1,3 @@
 {
-    "mongoURI": "mongodb+srv://mernzac:1234@cluster0.svvgq.mongodb.net/myFirstDatabase?retryWrites=true&w=majority"
+  "mongoURI": "mongodb+srv://mernzac:1234@cluster0.svvgq.mongodb.net/myFirstDatabase?retryWrites=true&w=majority"
 }
