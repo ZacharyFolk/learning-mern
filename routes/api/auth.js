@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../../middleware/auth');
 const User = require('../../models/Users');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('config');
 const { check, validationResult } = require('express-validator');
@@ -25,11 +26,8 @@ router.get('/', auth, async (req, res) => {
 router.post(
   '/',
   [
-    check('name', 'Name is required').not().isEmpty(),
     check('email', 'Please include a valid email').isEmail(),
-    check('password', 'Enter a password with 6 or more chars').isLength({
-      min: 6,
-    }),
+    check('password', 'Password is required').exists(),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -37,63 +35,40 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, email, password } = req.body;
+    const { email, password } = req.body;
 
     try {
-      // See if user exists (avoid multiple emails)
       let user = await User.findOne({ email });
-      if (user) {
+
+      if (!user) {
         return res
           .status(400)
-          .json({ errors: [{ msg: 'User already exists' }] }); // match same type of error as validation errors
+          .json({ errors: [{ msg: 'Invalid Credentials' }] });
       }
-      // Get users gravatar
-      const avatar = gravatar.url(email, {
-        s: '200',
-        r: 'pg',
-        d: 'mm', // a default avatar
-      });
 
-      user = new User({
-        name,
-        email,
-        avatar,
-        password,
-      });
+      const isMatch = await bcrypt.compare(password, user.password); // compare pword of request and match of db password
 
-      // Encrypt the password
-
-      const salt = await bcrypt.genSalt(10);
-
-      user.password = await bcrypt.hash(password, salt);
-
-      await user.save(); // anything that returns a promise should use await, cleaner than using a lot of .then()
-
-      // res.send("User registered");
-
-      // Return jsonwebtoken so on frontend user is logged in immediately
-      // https://github.com/auth0/node-jsonwebtoken
-      // web token allows to access protected areas after register
+      if (!isMatch) {
+        return res
+          .status(400)
+          .json({ errors: [{ mst: 'Invalid Credentials' }] });
+      }
 
       const payload = {
         user: {
-          // get id from earlier promise
-          id: user.id, // mongoose abstraction removes need to use the _ that is in mdb
+          id: user.id,
         },
       };
 
       jwt.sign(
-        // assign the token
         payload,
         config.get('jwtSecret'),
-        { expiresIn: 3600000 }, // optional, change to 3600/1 hr
+        { expiresIn: 3600000 },
         (err, token) => {
-          // callback arrow function
           if (err) throw err;
-          res.json({ token }); // could send user.id but just using token
-          // use site https://jwt.io  to decode encryption of token
+          res.json({ token });
         }
-      ); // put the secret in config/default.json
+      );
     } catch (err) {
       console.error(err.message);
       res.status(500).send('Server error');
