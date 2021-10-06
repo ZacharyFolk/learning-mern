@@ -30,15 +30,18 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
+    // destructure request body to avoid repetition
     const { name, email, password } = req.body;
 
     try {
       // See if user exists (avoid multiple emails)
+
       let user = await User.findOne({ email });
       if (user) {
         return res
           .status(400)
-          .json({ errors: [{ msg: 'User already exists' }] }); // match same type of error as validation errors
+          .json({ errors: [{ msg: 'User already exists' }] });
+        // match same type of error array as validation errors returned in array at #30
       }
       // Get users gravatar
       const avatar = gravatar.url(email, {
@@ -78,7 +81,7 @@ router.post(
       jwt.sign(
         // assign the token
         payload,
-        config.get('jwtSecret'),
+        config.get('jwtSecret'), // put the secret in config/default.json
         { expiresIn: 3600000 }, // optional, change to 3600/1 hr
         (err, token) => {
           // callback arrow function
@@ -86,7 +89,7 @@ router.post(
           res.json({ token }); // could send user.id but just using token
           // use site https://jwt.io  to decode encryption of token
         }
-      ); // put the secret in config/default.json
+      );
     } catch (err) {
       console.error(err.message);
       res.status(500).send('Server error');
